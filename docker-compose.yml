@@ -1,0 +1,138 @@
+name: taxi-pipeline
+
+x-hadoop: &hadoop
+  image: apache/hadoop:3.3.6
+  user: root
+  env_file: ./infra/hadoop/hadoop.env
+
+x-spark-worker: &spark-worker
+  build: ./infra/spark
+  image: taxi-spark:3.5.3
+  depends_on: [spark-master]
+  environment: &worker-env
+    SPARK_WORKER_CORES: ${WORKER_CORES:-3}
+    SPARK_WORKER_MEMORY: ${WORKER_MEMORY:-3g}
+
+services:
+  # ---------------- Stockage HDFS : 1 NameNode + 2 DataNodes (replication 2) ----------------
+  namenode:
+    <<: *hadoop
+    hostname: namenode
+    command: ["hdfs", "namenode"]
+    environment:
+      ENSURE_NAMENODE_DIR: /hadoop/dfs/name
+    ports: ["9870:9870"]
+    volumes: [namenode-data:/hadoop/dfs/name]
+    healthcheck:
+      test: ["CMD-SHELL", "hdfs dfs -ls / >/dev/null 2>&1"]
+      interval: 15s
+      timeout: 20s
+      retries: 20
+      start_period: 40s
+
+  datanode1:
+    <<: *hadoop
+    hostname: datanode1
+    command: ["hdfs", "datanode"]
+    depends_on: [namenode]
+    volumes: [datanode1-data:/hadoop/dfs/data]
+
+  datanode2:
+    <<: *hadoop
+    hostname: datanode2
+    command: ["hdfs", "datanode"]
+    depends_on: [namenode]
+    volumes: [datanode2-data:/hadoop/dfs/data]
+
+  # ---------------- Ingestion : Kafka (KRaft, sans Zookeeper) ----------------
+  kafka:
+    image: apache/kafka:3.7.0
+    hostname: kafka
+    ports: ["29092:29092"]
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_LISTENERS: PLAINTEXT://:9092,CONTROLLER://:9093,EXTERNAL://:29092
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,EXTERNAL://localhost:29092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,EXTERNAL:PLAINTEXT
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+    volumes: [kafka-data:/var/lib/kafka/data]
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server localhost:9092 >/dev/null 2>&1"]
+      interval: 10s
+      timeout: 15s
+      retries: 20
+      start_period: 20s
+
+  kafka-init:
+    image: apache/kafka:3.7.0
+    depends_on:
+      kafka: {condition: service_healthy}
+    restart: "no"
+    entrypoint: ["/bin/bash", "-c"]
+    command: ["/opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9092 --create --if-not-exists --topic taxi-trips --partitions 3 --replication-factor 1"]
+
+  # ---------------- Calcul : Spark standalone (1 master + 2 workers) ----------------
+  spark-master:
+    build: ./infra/spark
+    image: taxi-spark:3.5.3
+    hostname: spark-master
+    command: ["/opt/spark/bin/spark-class", "org.apache.spark.deploy.master.Master", "--host", "spark-master", "--port", "7077", "--webui-port", "8080"]
+    ports: ["8080:8080"]
+
+  spark-worker-1:
+    <<: *spark-worker
+    hostname: spark-worker-1
+    environment:
+      <<: *worker-env
+      SPARK_LOCAL_HOSTNAME: spark-worker-1
+    command: ["/opt/spark/bin/spark-class", "org.apache.spark.deploy.worker.Worker", "spark://spark-master:7077", "--webui-port", "8081"]
+    ports: ["8081:8081"]
+
+  spark-worker-2:
+    <<: *spark-worker
+    hostname: spark-worker-2
+    environment:
+      <<: *worker-env
+      SPARK_LOCAL_HOSTNAME: spark-worker-2
+    command: ["/opt/spark/bin/spark-class", "org.apache.spark.deploy.worker.Worker", "spark://spark-master:7077", "--webui-port", "8082"]
+    ports: ["8082:8082"]
+
+  # Conteneur "driver": on y lance spark-submit (jobs batch et streaming)
+  spark-client:
+    build: ./infra/spark
+    image: taxi-spark:3.5.3
+    hostname: spark-client
+    command: ["sleep", "infinity"]
+    working_dir: /app
+    volumes: ["./:/app"]
+    ports: ["4040-4042:4040-4042"]
+    depends_on:
+      namenode: {condition: service_healthy}
+      kafka-init: {condition: service_completed_successfully}
+      spark-worker-1: {condition: service_started}
+      spark-worker-2: {condition: service_started}
+
+  # Producteur: lance a la demande (profil "tools"), pas au "docker compose up"
+  producer:
+    build: ./ingestion
+    profiles: ["tools"]
+    volumes:
+      - ./ingestion:/app
+      - ./data:/data:ro
+    environment:
+      KAFKA_BOOTSTRAP: kafka:9092
+    depends_on:
+      kafka-init: {condition: service_completed_successfully}
+
+volumes:
+  namenode-data:
+  datanode1-data:
+  datanode2-data:
+  kafka-data:

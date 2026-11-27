@@ -1,0 +1,148 @@
+{
+  "version": "v1",
+  "n_train": 284996,
+  "n_val": 141848,
+  "n_test": 141637,
+  "best_model": "GBT",
+  "best_params": {
+    "maxIter": 40,
+    "maxDepth": 6
+  },
+  "rows": [
+    {
+      "stage": "baseline",
+      "model": "Moyenne",
+      "split": "val",
+      "rmse": 16.890745013707427,
+      "mae": 10.997037485268418,
+      "r2": -0.002006650211153538,
+      "params": "mean=18.11"
+    },
+    {
+      "stage": "baseline",
+      "model": "Tarif_au_mile",
+      "split": "val",
+      "rmse": 9.883144099684367,
+      "mae": 5.6248683524307275,
+      "r2": 0.6569453996949601,
+      "params": "usd_per_mile=5.67"
+    },
+    {
+      "stage": "baseline",
+      "model": "Moyenne",
+      "split": "test",
+      "rmse": 17.10035365684202,
+      "mae": 11.053367772356587,
+      "r2": -0.0037337700662660733,
+      "params": "mean=18.11"
+    },
+    {
+      "stage": "baseline",
+      "model": "Tarif_au_mile",
+      "split": "test",
+      "rmse": 9.924364572124649,
+      "mae": 5.768047083087195,
+      "r2": 0.6619244439888722,
+      "params": "usd_per_mile=5.67"
+    },
+    {
+      "stage": "comparaison",
+      "model": "LinearRegression",
+      "split": "val",
+      "rmse": 4.154579219478081,
+      "mae": 2.438313296161123,
+      "r2": 0.939378443723747,
+      "params": ""
+    },
+    {
+      "stage": "comparaison",
+      "model": "LinearRegression",
+      "split": "test",
+      "rmse": 4.227762560046145,
+      "mae": 2.5231369155764156,
+      "r2": 0.9386478864735983,
+      "params": ""
+    },
+    {
+      "stage": "comparaison",
+      "model": "RandomForest",
+      "split": "val",
+      "rmse": 4.088259615502722,
+      "mae": 2.5624044183472114,
+      "r2": 0.9412984017090883,
+      "params": ""
+    },
+    {
+      "stage": "comparaison",
+      "model": "RandomForest",
+      "split": "test",
+      "rmse": 4.213555539083854,
+      "mae": 2.6491129236082154,
+      "r2": 0.9390595303309206,
+      "params": ""
+    },
+    {
+      "stage": "comparaison",
+      "model": "GBT",
+      "split": "val",
+      "rmse": 3.712680158280697,
+      "mae": 2.1563890940393207,
+      "r2": 0.9515885526994537,
+      "params": ""
+    },
+    {
+      "stage": "comparaison",
+      "model": "GBT",
+      "split": "test",
+      "rmse": 3.823467241508571,
+      "mae": 2.239171239361878,
+      "r2": 0.9498208732991056,
+      "params": ""
+    },
+    {
+      "stage": "tuning",
+      "model": "GBT",
+      "split": "val",
+      "rmse": 3.8288069999659444,
+      "mae": 2.243925813128324,
+      "r2": 0.9485127207562274,
+      "params": "{\"maxIter\": 20, \"maxDepth\": 4}"
+    },
+    {
+      "stage": "tuning",
+      "model": "GBT",
+      "split": "val",
+      "rmse": 3.641635204545305,
+      "mae": 2.0749457656915906,
+      "r2": 0.9534236051296231,
+      "params": "{\"maxIter\": 20, \"maxDepth\": 6}"
+    },
+    {
+      "stage": "tuning",
+      "model": "GBT",
+      "split": "val",
+      "rmse": 3.7101340414943977,
+      "mae": 2.154942128110135,
+      "r2": 0.9516549300482986,
+      "params": "{\"maxIter\": 40, \"maxDepth\": 4}"
+    },
+    {
+      "stage": "tuning",
+      "model": "GBT",
+      "split": "val",
+      "rmse": 3.5788671626042716,
+      "mae": 2.029183736605325,
+      "r2": 0.9550153702649226,
+      "params": "{\"maxIter\": 40, \"maxDepth\": 6}"
+    },
+    {
+      "stage": "final",
+      "model": "GBT_tuned",
+      "split": "test",
+      "rmse": 3.6184737306124855,
+      "mae": 2.0876660088491272,
+      "r2": 0.9550572958691118,
+      "params": "{\"maxIter\": 40, \"maxDepth\": 6}"
+    }
+  ]
+}
